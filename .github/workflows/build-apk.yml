@@ -17,13 +17,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 配置 Android SDK 环境
-        uses: android-actions/setup-android@v3
-
-      - name: 自动接受 Android SDK 协议并写入路径
+      - name: 配置系统自带 Android SDK 路径与协议
         run: |
-          yes | sdkmanager --licenses || true
           echo "sdk.dir=$ANDROID_HOME" > local.properties
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: 安装并配置 Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
