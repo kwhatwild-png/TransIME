@@ -1,3 +1,0 @@
-#!/usr/bin/env sh
-# Gradle wrapper script for Unix
-exec gradle "$@"
