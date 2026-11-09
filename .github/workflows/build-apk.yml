@@ -39,7 +39,7 @@ jobs:
           ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
             echo "发现工程压缩包 $ZIP_FILE，正在自动解压..."
-            unzip -o "$ZIP_FILE"
+            unzip -o "$ZIP_FILE" || true
           fi
           
           if [ ! -d "app" ]; then
