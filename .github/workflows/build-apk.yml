@@ -1,9 +1,9 @@
-name: Build AI-IME Android APK
+name: Build Google Translate Android APK
 
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch:
+  workflow_dispatch: # 支持在 GitHub Actions 页面随时手动点击 Run 按钮打包
 
 jobs:
   build:
@@ -18,7 +18,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 配置 Android SDK 路径与 AndroidX 属性
+      - name: 配置 Android SDK 路径与编译属性
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           echo "android.useAndroidX=true" > gradle.properties
@@ -31,17 +31,19 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: 自动解压与定位 app 源码
+      - name: 自动解压与定位工程源码
         run: |
           echo "=== 1. 检查上传的文件 ==="
           ls -la
           
+          # 查找仓库中是否存在 zip 压缩包，如果直接上传了 zip 则自动解压
           ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
             echo "发现工程压缩包 $ZIP_FILE，正在自动解压..."
             unzip -o "$ZIP_FILE" || true
           fi
           
+          # 如果 app 目录在子文件夹里，自动定位同步到根目录
           if [ ! -d "app" ]; then
             SUB_APP=$(find . -maxdepth 3 -type d -name "app" | head -n 1)
             if [ -n "$SUB_APP" ]; then
@@ -54,17 +56,17 @@ jobs:
           ls -la
           
           if [ ! -d "app" ]; then
-            echo "❌ 错误：仓库中缺少 app 源码文件夹！"
+            echo "❌ 错误：仓库中缺少包含核心代码的 app 文件夹！"
             exit 1
           fi
 
-      - name: 执行编译打包 (无守护进程模式)
+      - name: 执行编译打包 (生成 Debug APK)
         run: |
           gradle assembleDebug --no-daemon --stacktrace
 
-      - name: 上传打包好的 APK
+      - name: 上传打包好的 APK Artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: AI-IME-debug-apk
+          name: GoogleTranslate-debug-apk
           path: '**/app/build/outputs/apk/debug/*.apk'
