@@ -3,7 +3,7 @@ name: Build Google Translate Android APK
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch: # 支持在 GitHub Actions 页面随时手动点击 Run 按钮打包
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,6 +18,38 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: 自动解压与目录层级校准
+        run: |
+          echo "=== 1. 查看仓库根目录原始内容 ==="
+          ls -la
+          
+          # 1. 查找是否存在 zip 压缩包，有则自动解压
+          ZIP_FILE=$(find . -maxdepth 3 -name "*.zip" | head -n 1)
+          if [ -n "$ZIP_FILE" ]; then
+            echo "发现工程压缩包 $ZIP_FILE，正在解压..."
+            unzip -o "$ZIP_FILE" || true
+          fi
+
+          # 2. 深度寻找 settings.gradle.kts 或 settings.gradle 的真正位置
+          SETTINGS_FILE=$(find . -maxdepth 4 -name "settings.gradle*" | head -n 1)
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "❌ 严重错误：未在仓库或压缩包中找到 settings.gradle / settings.gradle.kts 文件！"
+            find . -maxdepth 3
+            exit 1
+          fi
+
+          TARGET_DIR=$(dirname "$SETTINGS_FILE")
+          echo "找到工程根目录位于: $TARGET_DIR"
+
+          # 如果不在当前工作区根目录，将所有工程文件复制/同步至当前根目录
+          if [ "$TARGET_DIR" != "." ]; then
+            echo "正在将 $TARGET_DIR 内的所有文件同步到根目录..."
+            cp -r $TARGET_DIR/* .
+          fi
+
+          echo "=== 2. 校准后的根目录内容 ==="
+          ls -la
+
       - name: 配置 Android SDK 路径与编译属性
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
@@ -31,40 +63,11 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: 自动解压与定位工程源码
-        run: |
-          echo "=== 1. 检查上传的文件 ==="
-          ls -la
-          
-          # 查找仓库中是否存在 zip 压缩包，如果直接上传了 zip 则自动解压
-          ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
-          if [ -n "$ZIP_FILE" ]; then
-            echo "发现工程压缩包 $ZIP_FILE，正在自动解压..."
-            unzip -o "$ZIP_FILE" || true
-          fi
-          
-          # 如果 app 目录在子文件夹里，自动定位同步到根目录
-          if [ ! -d "app" ]; then
-            SUB_APP=$(find . -maxdepth 3 -type d -name "app" | head -n 1)
-            if [ -n "$SUB_APP" ]; then
-              echo "在子目录中找到了 app 源码: $SUB_APP，自动同步到根目录..."
-              cp -r "$SUB_APP" ./app
-            fi
-          fi
-          
-          echo "=== 2. 确认工程结构 ==="
-          ls -la
-          
-          if [ ! -d "app" ]; then
-            echo "❌ 错误：仓库中缺少包含核心代码的 app 文件夹！"
-            exit 1
-          fi
-
       - name: 执行编译打包 (生成 Debug APK)
         run: |
           gradle assembleDebug --no-daemon --stacktrace
 
-      - name: 上传打包好的 APK Artifact
+      - name: 上传打包好的 APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
